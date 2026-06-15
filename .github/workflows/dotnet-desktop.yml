@@ -24,8 +24,12 @@ jobs:
         run: dotnet publish MsGraphEmailClient/MsGraphEmailClient.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish
 
       - name: Zip artifact
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          $v = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } else { '${{ github.ref_name }}' }
+          $v = if ($env:EVENT_NAME -eq 'workflow_dispatch') { $env:INPUT_VERSION } else { $env:REF_NAME }
           Compress-Archive -Path ./publish/* -DestinationPath "MsGraphEmailClient-$v.zip"
 
       - name: Create GitHub release
