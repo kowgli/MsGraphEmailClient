@@ -1,19 +1,35 @@
+name: Release
+
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version label (e.g. v1.0.0)'
+        required: false
+        default: 'dev'
 
 jobs:
   release:
     runs-on: windows-latest        # required — WinForms targets net10.0-windows
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.x'
-      - run: dotnet publish MsGraphEmailClient/MsGraphEmailClient.csproj
-               -c Release -r win-x64 --self-contained
-               -p:PublishSingleFile=true -o ./publish
-      - run: Compress-Archive ./publish/* MsGraphEmailClient-${{ github.ref_name }}.zip
-      - uses: softprops/action-gh-release@v2
+
+      - name: Publish
+        run: dotnet publish MsGraphEmailClient/MsGraphEmailClient.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish
+
+      - name: Zip artifact
+        run: |
+          $v = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } else { '${{ github.ref_name }}' }
+          Compress-Archive -Path ./publish/* -DestinationPath "MsGraphEmailClient-$v.zip"
+
+      - name: Create GitHub release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
         with:
           files: MsGraphEmailClient-*.zip
