@@ -1,0 +1,19 @@
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: windows-latest        # required — WinForms targets net10.0-windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+      - run: dotnet publish MsGraphEmailClient/MsGraphEmailClient.csproj
+               -c Release -r win-x64 --self-contained
+               -p:PublishSingleFile=true -o ./publish
+      - run: Compress-Archive ./publish/* MsGraphEmailClient-${{ github.ref_name }}.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: MsGraphEmailClient-*.zip
