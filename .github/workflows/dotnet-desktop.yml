@@ -24,7 +24,7 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Restore dependencies
-        run: dotnet restore MsGraphEmailClient/MsGraphEmailClient.csproj
+        run: dotnet restore MsGraphEmailClient/MsGraphEmailClient.csproj -r win-x64
 
       - name: Determine version
         id: ver
