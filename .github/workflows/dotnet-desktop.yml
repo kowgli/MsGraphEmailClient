@@ -11,10 +11,11 @@ on:
         default: 'dev'
 
 jobs:
-  release:
-    runs-on: windows-latest        # required — WinForms targets net10.0-windows
+  build:
+    runs-on: windows-latest   # required — WinForms targets net10.0-windows
     permissions:
-      contents: write              # required to create GitHub releases
+      contents: write         # required to create GitHub releases
+
     steps:
       - uses: actions/checkout@v4
 
@@ -22,20 +23,58 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      - name: Publish
-        run: dotnet publish MsGraphEmailClient/MsGraphEmailClient.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish
+      - name: Restore dependencies
+        run: dotnet restore MsGraphEmailClient/MsGraphEmailClient.csproj
 
-      - name: Zip artifact
+      - name: Determine version
+        id: ver
+        shell: pwsh
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_VERSION: ${{ inputs.version }}
           REF_NAME: ${{ github.ref_name }}
         run: |
           $v = if ($env:EVENT_NAME -eq 'workflow_dispatch') { $env:INPUT_VERSION } else { $env:REF_NAME }
-          Compress-Archive -Path ./publish/* -DestinationPath "MsGraphEmailClient-$v.zip"
+          "value=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      # Smaller download — requires .NET 10 Runtime installed on the target PC
+      - name: Publish — framework-dependent
+        run: >
+          dotnet publish MsGraphEmailClient/MsGraphEmailClient.csproj
+          -c Release -r win-x64 --no-restore
+          --self-contained false
+          -p:PublishSingleFile=true
+          -o ./publish/fdd
+
+      # Larger download — bundles the .NET 10 runtime; runs on any Windows x64 PC
+      - name: Publish — self-contained
+        run: >
+          dotnet publish MsGraphEmailClient/MsGraphEmailClient.csproj
+          -c Release -r win-x64 --no-restore
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o ./publish/scd
+
+      - name: Package artifacts
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.ver.outputs.value }}
+        run: |
+          $v = $env:VERSION
+          Compress-Archive -Path ./publish/fdd/* -DestinationPath "MsGraphEmailClient-$v-win-x64.zip"
+          Compress-Archive -Path ./publish/scd/* -DestinationPath "MsGraphEmailClient-$v-win-x64-selfcontained.zip"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-zips-${{ steps.ver.outputs.value }}
+          path: MsGraphEmailClient-*.zip
+          retention-days: 30
 
       - name: Create GitHub release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           files: MsGraphEmailClient-*.zip
+          generate_release_notes: true

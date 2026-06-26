@@ -57,3 +57,25 @@ dotnet run
 ```
 
 Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download) and Windows.
+
+## Creating a release
+
+The GitHub Actions workflow triggers automatically on a version tag and publishes two zip files to a GitHub release:
+
+| Artifact | Size | Requirement |
+|---|---|---|
+| `MsGraphEmailClient-vX.Y.Z-win-x64.zip` | ~3 MB | [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) must be installed |
+| `MsGraphEmailClient-vX.Y.Z-win-x64-selfcontained.zip` | ~130 MB | None — .NET is bundled |
+
+### Tag-based release (recommended)
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+GitHub Actions builds both variants and creates a release with auto-generated release notes.
+
+### Manual release via workflow dispatch
+
+Go to **Actions → Release → Run workflow**, enter a version label (e.g. `v1.0.0`), and click **Run workflow**. Both zips are uploaded as workflow artifacts (no GitHub release is created for manual runs).
